@@ -1,7 +1,7 @@
 import { put } from "@vercel/blob";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { PDFService } from "@/lib/pdf-service";
 
 // Increase timeout for PDF processing
@@ -156,30 +156,35 @@ export async function POST(request: NextRequest) {
       console.log("Starting background analysis...");
 
       // Use the AI service directly (no API call needed)
-      (async () => {
-        try {
-          const { AIService } = await import("@/lib/ai-service");
-          const { prisma } = await import("@/lib/db");
-          const { toPrismaAnalysis } = await import("@/types/resume");
+      after(
+        (async () => {
+          try {
+            const { AIService } = await import("@/lib/ai-service");
+            const { prisma } = await import("@/lib/db");
+            const { toPrismaAnalysis } = await import("@/types/resume");
 
-          const analysis = await AIService.analyzeResume(
-            extractedText,
-            jobRole.trim()
-          );
+            const analysis = await AIService.analyzeResume(
+              extractedText,
+              jobRole.trim()
+            );
 
-          // Convert to Prisma-compatible format
-          const prismaAnalysis = toPrismaAnalysis(analysis);
+            // Convert to Prisma-compatible format
+            const prismaAnalysis = toPrismaAnalysis(analysis);
 
-          await prisma.resume.update({
-            where: { id: resumeRecord.id },
-            data: { feedback: prismaAnalysis },
-          });
+            await prisma.resume.update({
+              where: { id: resumeRecord.id },
+              data: { feedback: prismaAnalysis },
+            });
 
-          console.log("✅ Background analysis completed for:", resumeRecord.id);
-        } catch (error) {
-          console.error("❌ Background analysis failed:", error);
-        }
-      })();
+            console.log(
+              "✅ Background analysis completed for:",
+              resumeRecord.id
+            );
+          } catch (error) {
+            console.error("❌ Background analysis failed:", error);
+          }
+        })()
+      );
     }
 
     // 9. Return Success Response with version info
